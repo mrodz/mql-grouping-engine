@@ -1,0 +1,23 @@
+{
+  "version": "0.1.6",
+  "requirements": [
+    {
+      "query": {
+        "quantity": {
+          "Single": 1
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "DistCode": {
+              "dist": "L5",
+              "code": "ARBC"
+            }
+          }
+        ]
+      },
+      "description": "must take one Arabic L5",
+      "priority": 1
+    }
+  ]
+}

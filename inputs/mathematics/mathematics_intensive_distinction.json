@@ -1,0 +1,278 @@
+{
+  "version": "0.1.6",
+  "requirements": [
+    {
+      "query": {
+        "quantity": {
+          "Single": 1
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 1150,
+              "lab": false
+            }
+          },
+          {
+            "Tag": "Equivalent Placement or Credit"
+          }
+        ]
+      },
+      "description": "Prerequisites",
+      "priority": 1
+    },
+    {
+      "query": {
+        "quantity": {
+          "Single": 3
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "Query": {
+              "quantity": {
+                "Single": 1
+              },
+              "type": "Select",
+              "selector": [
+                {
+                  "Class": {
+                    "department_id": "MATH",
+                    "course_number": 2250,
+                    "lab": false
+                  }
+                },
+                {
+                  "Class": {
+                    "department_id": "MATH",
+                    "course_number": 2260,
+                    "lab": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "Query": {
+              "quantity": {
+                "Single": 1
+              },
+              "type": "Select",
+              "selector": [
+                {
+                  "Class": {
+                    "department_id": "MATH",
+                    "course_number": 2550,
+                    "lab": false
+                  }
+                },
+                {
+                  "Class": {
+                    "department_id": "MATH",
+                    "course_number": 2560,
+                    "lab": false
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "Query": {
+              "quantity": {
+                "Single": 1
+              },
+              "type": "Select",
+              "selector": [
+                {
+                  "Class": {
+                    "department_id": "MATH",
+                    "course_number": 3020,
+                    "lab": false
+                  }
+                },
+                {
+                  "Class": {
+                    "department_id": "MATH",
+                    "course_number": 1200,
+                    "lab": false
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "description": "Introductory Sequence",
+      "priority": 3
+    },
+    {
+      "query": {
+        "quantity": {
+          "Single": 6
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 3050,
+              "lab": false
+            }
+          },
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 3100,
+              "lab": false
+            }
+          },
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 3500,
+              "lab": false
+            }
+          },
+          {
+            "Range": {
+              "from": {
+                "department_id": "MATH",
+                "course_number": 2250,
+                "lab": false
+              },
+              "to": {
+                "department_id": "MATH",
+                "course_number": 9999,
+                "lab": false
+              }
+            }
+          },
+          {
+            "Range": {
+              "from": {
+                "department_id": "MATH",
+                "course_number": 2250,
+                "lab": false
+              },
+              "to": {
+                "department_id": "MATH",
+                "course_number": 9999,
+                "lab": false
+              }
+            }
+          },
+          {
+            "Range": {
+              "from": {
+                "department_id": "MATH",
+                "course_number": 2250,
+                "lab": false
+              },
+              "to": {
+                "department_id": "MATH",
+                "course_number": 9999,
+                "lab": false
+              }
+            }
+          }
+        ]
+      },
+      "description": "Core Classes",
+      "priority": 6
+    },
+    {
+      "query": {
+        "quantity": {
+          "Single": 2
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "Range": {
+              "from": {
+                "department_id": "MATH",
+                "course_number": 5000,
+                "lab": false
+              },
+              "to": {
+                "department_id": "MATH",
+                "course_number": 5999,
+                "lab": false
+              }
+            }
+          }
+        ]
+      },
+      "description": "Graduate-Level Courses",
+      "priority": 2
+    },
+    {
+      "query": {
+        "quantity": {
+          "Single": 1
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "Range": {
+              "from": {
+                "department_id": "MATH",
+                "course_number": 4800,
+                "lab": false
+              },
+              "to": {
+                "department_id": "MATH",
+                "course_number": 4890,
+                "lab": false
+              }
+            }
+          },
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 4750,
+              "lab": false
+            }
+          }
+        ]
+      },
+      "description": "Senior Requirement",
+      "priority": 1
+    },
+    {
+      "query": {
+        "quantity": {
+          "Single": 3
+        },
+        "type": "Select",
+        "selector": [
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 3050,
+              "lab": false
+            }
+          },
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 3100,
+              "lab": false
+            }
+          },
+          {
+            "Class": {
+              "department_id": "MATH",
+              "course_number": 3500,
+              "lab": false
+            }
+          }
+        ]
+      },
+      "description": "Courses Required for Distinction",
+      "priority": 3
+    }
+  ]
+}
