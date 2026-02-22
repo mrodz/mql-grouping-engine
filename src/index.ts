@@ -1,31 +1,88 @@
-#!/usr/bin/env node
+import { writeFile } from "fs/promises";
 import { MQLMatcher } from "./engines/matching/v1.js";
 import { CourseValidator } from "./schema/courses/validator.js";
 import { MQLValidator } from "./schema/mql/validator.js"
 import { mqlFiles, yaleCourses } from "./sink.js"
+import { exit } from "process";
 
-const MQL_PATH = "inputs/test"
-const COURSES_PATH = "inputs/courses/mock_courses_2025_26.json"
+let input = "";
 
-const courses = await yaleCourses(COURSES_PATH, new CourseValidator());
+process.stdin.setEncoding("utf8");
 
-if (!courses.ok) {
-    throw courses.error;
-}
+process.stdin.on("data", chunk => {
+    input += chunk;
+});
 
-const matchingEngine = new MQLMatcher();
-
-for await (const [output, entry] of mqlFiles(MQL_PATH, new MQLValidator())) {
-    if (output.ok) {
-        const matchingResult = matchingEngine.match(courses.data, output.data)
-        if (matchingResult.ok) {
-            console.log(matchingResult.data.allSelectedCourses);
-            // console.log(JSON.stringify(matchingResult.data, null, 1))
-        } else {
-            console.error(`❌ ${entry} could not execute: ${JSON.stringify(matchingResult.error)}`)
-        }
-        // console.log(`✅ ${entry} is MQL`);
-    } else {
-        console.error(`❌ ${entry} is not MQL: ${JSON.stringify(output.error)}`)
+process.stdin.on("end", async () => {
+    try {
+        const parsed = JSON.parse(input);
+        await mqlTransformer(parsed);
+    } catch (err) {
+        console.error("Invalid JSON input");
+        process.exit(1);
     }
+});
+
+async function mqlTransformer(stdin: any) {
+
+    const MQL_PATH = "inputs/test"
+    const COURSES_PATH = "inputs/courses/mock_courses_2025_26.json"
+
+    const courses = await yaleCourses(COURSES_PATH, new CourseValidator());
+
+    if (!courses.ok) {
+        exit(1);
+    }
+
+    const courseList = courses.data;
+    const matchingEngine = new MQLMatcher();
+
+    const outputs = []
+
+    let errc = 0;
+
+    const mqlValidator = new MQLValidator();
+
+    let mql;
+
+    if (stdin.length === 0) {
+        mql = mqlFiles(MQL_PATH, mqlValidator);
+    } else {
+        if (Array.isArray(stdin)) {
+            mql = stdin.map((file, i) => {
+                const res = mqlValidator.validate(file);
+                return [res, `<stdin[${i}]>`] as const;
+            })
+        } else {
+            mql = [[mqlValidator.validate(stdin), "<stdin>"] as const];
+        }
+    }
+
+    for await (const [output, entry] of mql) {
+        if (output.ok) {
+            const matchingResult = matchingEngine.match(courseList, output.data);
+            if (matchingResult.ok) {
+                outputs.push(matchingResult.data);
+            } else {
+                console.error(`❌ ${entry} could not execute: ${JSON.stringify(matchingResult.error)}`);
+                errc++;
+            }
+        } else {
+            console.error(`❌ ${entry} is not MQL: ${JSON.stringify(output.error)}`);
+            errc++;
+        }
+    }
+
+    if (errc != 0) {
+        exit(1);
+    }
+
+    const json = JSON.stringify(outputs);
+
+    if (stdin.length === 0) {
+        const now = +new Date();
+        await writeFile(`outputs/out_${now}.txt`, json);
+    }
+    
+    console.log(json);
 }
