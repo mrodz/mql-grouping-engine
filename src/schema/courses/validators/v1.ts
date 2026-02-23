@@ -7,6 +7,9 @@ export interface CoursesValidationError {
   message: string;
 }
 
+/**
+ * @deprecated
+ */
 export class CourseValidator extends Validator<CourseList, CoursesValidationError[]> {
   private errors: CoursesValidationError[] = [];
   private currentPath: string[] = [];

@@ -21,4 +21,4 @@ export interface ManualFulfillment {
   description: string,
 }
 
-export type CourseList = Array<Course | ManualFulfillment>;
+export type CourseList = Array<Course | ManualFulfillment | CourseList>;

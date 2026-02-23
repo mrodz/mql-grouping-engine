@@ -50,7 +50,7 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
   }
 
   matchFlatten(courseList: CourseList, mql: MQLQuery): Result<CourseList, MatchingError> {
-    const flattened = new Set<Course | ManualFulfillment>();
+    const flattened = new Set<Course | ManualFulfillment | CourseList>();
 
     for (const query of mql.selector) {
       const [key] = Object.keys(query) as [SelectorKind];
@@ -144,7 +144,7 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
     const dist = selector.DistCode.dist.toLowerCase()
     const dep = selector.DistCode.code;
 
-    const courseFilter = (course: Course | ManualFulfillment) => {
+    const courseFilter = (course: typeof courseList[number]) => {
       if (!('dist' in course)) {
         return false;
       }
@@ -215,15 +215,35 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
     return err({ requirement: String(mql), message: 'queryRangeTag: unimplemented' })
   }
 
-  queryTag(mql: MQLQuery, selector: Selector, _courseList: CourseList): Result<CourseList, MatchingError> {
+  queryTag(mql: MQLQuery, selector: Selector, courseList: CourseList): Result<CourseList, MatchingError> {
     if (!('Tag' in selector)) return err({ requirement: String(mql), message: 'TypeError: Expected .kind = "Tag"' });
-    
-    return err({ requirement: String(mql), message: 'queryTag: unimplemented' })
+
+    const tag = selector.Tag;
+
+    const maybeCourses = courseList.filter(course => 'tags' in course && course.tags.includes(tag));
+
+    if (maybeCourses.length === 0) {
+      return err({ requirement: JSON.stringify(mql), message: `TAG(${tag}) not found in catalog` });
+    }
+
+    return ok(maybeCourses);
   }
 
-  queryTagCode(mql: MQLQuery, selector: Selector, _courseList: CourseList): Result<CourseList, MatchingError> {
+  queryTagCode(mql: MQLQuery, selector: Selector, courseList: CourseList): Result<CourseList, MatchingError> {
     if (!('TagCode' in selector)) return err({ requirement: String(mql), message: 'TypeError: Expected .kind = "TagCode"' });
-    return err({ requirement: String(mql), message: 'queryTagCode: unimplemented' })
+
+    const { tag, code: dep } = selector.TagCode;
+
+    const maybeCourses = courseList.filter((course) => {
+      if (!('tags' in course)) return false;
+      return course.codes.some((code) => code.split(' ')[0] === dep) && course.tags.includes(tag);
+    });
+
+    if (maybeCourses.length === 0) {
+      return err({ requirement: JSON.stringify(mql), message: `TAG_DEPT(${tag}, ${dep}) not found in catalog` });
+    }
+
+    return ok(maybeCourses);
   }
 
   queryQuery(mql: MQLQuery, selector: Selector, courseList: CourseList): Result<CourseList, MatchingError> {
@@ -234,8 +254,10 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
     const result = this.match(courseList, query, false)
     if (!result.ok) {
       console.trace()
+      return result;
+    } else {
+      return ok([result.data])
     }
-    return result;
   }
 }
 
@@ -247,7 +269,7 @@ export class MQLMatcher extends MatchingEngine<MatchingEvaluationResult, Matchin
     const queryMatcher = new QueryMatcher();
 
     const errors = [];
-    const usedCourses: Set<Course | ManualFulfillment> = new Set();
+    const usedCourses: Set<typeof courseList[number]> = new Set();
 
     const results: QueryResult[] = [];
 
