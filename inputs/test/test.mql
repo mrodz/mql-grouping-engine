@@ -1,10 +1,2 @@
-SELECT 1 FROM CLASS(MATH 2250) : "must take math 2250";
-SELECT 2 FROM [CLASS(MATH 2250), CLASS(MATH 2260), CLASS(MATH 2220)] : "must take some linear algebra" : 9;
-//SELECT 1 FROM CLASS(MATH 2220) : "easy lin alg";
-//SELECT 2 FROM RANGE(MATH 2210, MATH 2260) : "must take linear algebra";
-
-//SELECT 1 FROM [SELECT 1 FROM CLASS(MATH 2250), SELECT 1 FROM CLASS(CPSC 2010)] : "must take math 2250";
-
-//SELECT 1 FROM DIST("L5") : "must take one L5";
-
-SELECT 2 FROM DIST_DEPT("L5", "ARBC") : "must take one Arabic L5";
+SELECT 2 FROM [SELECT 1 FROM CLASS(MATH 2250), SELECT 1 FROM CLASS(MATH 2260)] : "must take a linear algebra";
+SELECT 1 FROM CLASS(MATH 2260) : "must take a hard linear algebra" : 9;

@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 import sys
 import json
-from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 import subprocess
 from pathlib import Path
 
@@ -24,53 +21,57 @@ def quantity_bounds(q: Dict[str, Any]) -> Tuple[int, int]:
     return int(many["from"]), int(many["to"])
 
 
-def course_id(course: dict) -> str:
+def course_id(course: dict, use_seasons: bool = False) -> str:
     code = course["codes"][0]
-    season = course["season_codes"][0] if course.get("season_codes") else "NA"
-    return f"{code}@{season}"
+    if use_seasons:
+        season = course["season_codes"][0] if course.get("season_codes") else "NA"
+        return f"{code}@{season}"
+    else:
+        return code
+
 
 def base_key(course: dict) -> str:
-    # e.g. "MATH 2250"
     return course["codes"][0]
+
+
+def q_bounds(q):
+        if "Single" in q:
+            n = int(q["Single"])
+            return n, n
+        return int(q["Many"]["from"]), int(q["Many"]["to"])
 
 
 # ---------- CP-SAT model ----------
 
 def solve_no_double_count(matching_eval):
     """
-    The model creates boolean decision variables for each course offering (x) 
-    and for each course-requirement assignment (y), where a course can only be 
-    assigned to a requirement if it's selected. Each requirement has a satisfaction 
-    variable (sat) that enforces the quantity constraints (min/max courses needed) 
-    and is set to false if no courses are assigned to it. Double-counting is prevented 
-    by constraining each course to satisfy at most one requirement, with an additional 
-    constraint grouping course variants by a base key so cross-listed or repeated courses 
-    also can't fulfill multiple requirements. The solver maximizes a weighted objective 
-    that heavily prioritizes satisfying more requirements (weight 10,000) and secondarily 
-    minimizes total courses selected, with a 2-second time limit.
+    ## Classes are not double counted
+    
+    Classes are consumed by each constraint.
+    
+    ## Fills the most important priorities first (non-negotiable)
+    
+    Eg.
+    ```mql
+    @1 -- SELECT 2 FROM [SELECT 1 FROM CLASS(MATH 2250), SELECT 1 FROM CLASS(MATH 2260)] : "must take a linear algebra" : 1;
+    @2 -- SELECT 1 FROM CLASS(MATH 2260) : "must take a hard linear algebra" : 2;
+    ```
+    
+    will partially fill MATH 2250 for @1 (failing) and MATH 2260 for @2 (passing).
+    
+    ## 
     """
     
     model = cp_model.CpModel()
     results = matching_eval["results"]
 
-    def q_bounds(q):
-        if "Single" in q:
-            n = int(q["Single"])
-            return n, n
-        return int(q["Many"]["from"]), int(q["Many"]["to"])
-
-    def cid(course):
-        code = course["codes"][0]
-        season = course["season_codes"][0] if course.get("season_codes") else "NA"
-        return f"{code}@{season}"
-
     # Collect all offerings
     offerings = {}
     for c in matching_eval.get("allSelectedCourses", []):
-        offerings[cid(c)] = c
+        offerings[course_id(c)] = c
 
     # Decision var: offering selected
-    x = {c: model.NewBoolVar(f"x_{c.replace(' ','_').replace('@','_')}")
+    x = {c: model.new_bool_var(f"x_{c.replace(' ','_').replace('@','_')}")
          for c in offerings.keys()}
 
     # Assignment vars: y[r,c] = counts toward requirement r
@@ -82,39 +83,37 @@ def solve_no_double_count(matching_eval):
         req = qr["requirement"]
         qmin, qmax = q_bounds(req["query"]["quantity"])
 
-        cands = [cid(c) for c in qr["selectedCourses"]]
+        cands = [course_id(c) for c in qr["selectedCourses"]]
         req_cands.append(cands)
 
         # ensure any missing offerings get vars
         for c in qr["selectedCourses"]:
-            k = cid(c)
+            k = course_id(c)
             if k not in x:
                 offerings[k] = c
-                x[k] = model.NewBoolVar(f"x_{k.replace(' ','_').replace('@','_')}")
+                x[k] = model.new_bool_var(f"x_{k.replace(' ','_').replace('@','_')}")
 
         # create y vars for this requirement's candidates
         for c in cands:
-            y[(r, c)] = model.NewBoolVar(f"y_r{r}_{c.replace(' ','_').replace('@','_')}")
-            model.Add(y[(r, c)] <= x[c])  # can only assign if selected
+            y[(r, c)] = model.new_bool_var(f"y_r{r}_{c.replace(' ','_').replace('@','_')}")
+            model.add(y[(r, c)] <= x[c])  # can only assign if selected
 
         sum_assigned = sum(y[(r, c)] for c in cands)
 
-        s = model.NewBoolVar(f"sat_{r}")
+        s = model.new_bool_var(f"sat_{r}")
         sat.append(s)
 
-        # sat=1 => qmin <= assigned <= qmax
-        model.Add(sum_assigned >= qmin).OnlyEnforceIf(s)
-        model.Add(sum_assigned <= qmax).OnlyEnforceIf(s)
+        model.add(sum_assigned <= qmax)  # unconditional
+        model.add(sum_assigned >= qmin).only_enforce_if(s)
+        model.add(sum_assigned <= qmin - 1).only_enforce_if(s.negated())
 
-        # sat=0 => assigned == 0
-        model.Add(sum_assigned == 0).OnlyEnforceIf(s.Not())
 
     # NO DOUBLE COUNTING:
     # each offering can satisfy at most one requirement
     for c in x.keys():
         used_by = [y[(r, c)] for r in range(len(results)) if (r, c) in y]
         if used_by:
-            model.Add(sum(used_by) <= 1)
+            model.add(sum(used_by) <= 1)
 
     base_to_y: dict[str, list[cp_model.IntVar]] = {}
 
@@ -124,13 +123,39 @@ def solve_no_double_count(matching_eval):
         base_to_y.setdefault(b, []).append(var)
 
     for b, vars_ in base_to_y.items():
-        model.Add(sum(vars_) <= 1)
+        model.add(sum(vars_) <= 1)
 
     total_satisfied = sum(sat)
     total_courses = sum(x.values())
+    
+    req_priority = []
+    for r, qr in enumerate(results):
+        req = qr["requirement"]
+        req_priority.append(req["priority"])
+        
+    R = len(results)
+
+    req_priority = [results[r]["requirement"]["priority"] for r in range(R)]
+
+    priorities = sorted(set(req_priority), reverse=True)
+
+    MAX_REQS = R
+    BASE = MAX_REQS + 1
+
+    expr = 0
+    for i, p in enumerate(priorities):
+        tier_sat = sum(
+            sat[r] for r in range(R)
+            if req_priority[r] == p
+        )
+        expr += tier_sat * (BASE ** (len(priorities) - 1 - i))
 
     M = 10_000
-    model.Maximize(total_satisfied * M + total_courses)
+
+    # Tie-breaker: maximize actual assigned courses
+    model.maximize(expr * M + sum(y.values()))
+
+    # model.Maximize(total_satisfied * M + total_courses)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = 2.0
@@ -138,31 +163,34 @@ def solve_no_double_count(matching_eval):
     status = solver.Solve(model)
 
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        return {"status": "no_solution"}
+        return {"status": "no_solution", "status_cpsat": str(status) }
 
-    selected = [c for c, var in x.items() if solver.Value(var) == 1]
+    selected = [c for c, var in x.items() if solver.value(var) == 1]
 
     per_req = []
     for r, qr in enumerate(results):
-        chosen = [c for c in req_cands[r] if solver.Value(y[(r, c)]) == 1]
+        chosen = [c for c in req_cands[r] if solver.value(y[(r, c)]) == 1]
         per_req.append({
             "description": qr["requirement"]["description"],
             "priority": qr["requirement"]["priority"],
             "satisfied": solver.Value(sat[r]) == 1,
             "selected": chosen,
+            "query": qr["requirement"]["query"]
         })
 
     return {
         "status": "ok",
-        "total_satisfied": solver.Value(total_satisfied),
-        "total_courses": solver.Value(total_courses),
+        "status_cpsat": str(status),
+        "total_satisfied": solver.value(total_satisfied),
+        "total_courses": solver.value(total_courses),
         "selected_courses": selected,
         "per_requirement": per_req,
     }
     
 
 SCRIPT_LOCATION = Path(__file__).resolve()
-INPUT_LOCATION = SCRIPT_LOCATION.parent.parent /"inputs" / "test"
+INPUT_LOCATION = SCRIPT_LOCATION.parent.parent / "inputs" / "test"
+
 
 if __name__ == "__main__":
     try:
@@ -188,6 +216,7 @@ if __name__ == "__main__":
             capture_output=True,
         )
     except subprocess.CalledProcessError as e:
+        print(e.stdout)
         print(f"Matching failed with exit code {e.returncode}", file=sys.stderr)
         print(f"Error output (stderr): {e.stderr}", file=sys.stderr)
         exit(2)
@@ -195,7 +224,6 @@ if __name__ == "__main__":
     print("Found required courses")
     
     for object in json.loads(result.stdout):
-        print(json.dumps(object, indent=2))
-
         sol = solve_no_double_count(object)
         print(json.dumps(sol, indent=2))
+        

@@ -1,7 +1,7 @@
 import { writeFile } from "fs/promises";
 import { MQLMatcher } from "./engines/matching/v1.js";
-import { CourseValidator } from "./schema/courses/validator.js";
-import { MQLValidator } from "./schema/mql/validator.js"
+import { CourseValidator } from "./schema/courses/validators/v2.js";
+import { MQLValidator } from "./schema/mql/validators/v1.js"
 import { mqlFiles, yaleCourses } from "./sink.js"
 import { exit } from "process";
 
@@ -19,18 +19,19 @@ process.stdin.on("end", async () => {
         await mqlTransformer(parsed);
     } catch (err) {
         console.error("Invalid JSON input");
+        console.error(err);
         process.exit(1);
     }
 });
 
 async function mqlTransformer(stdin: any) {
-
     const MQL_PATH = "inputs/test"
-    const COURSES_PATH = "inputs/courses/mock_courses_2025_26.json"
+    const COURSES_PATH = "inputs/courses/courses.json"
 
     const courses = await yaleCourses(COURSES_PATH, new CourseValidator());
 
     if (!courses.ok) {
+        console.error(courses.error);
         exit(1);
     }
 

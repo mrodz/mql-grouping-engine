@@ -54,7 +54,7 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
 
     for (const query of mql.selector) {
       const [key] = Object.keys(query) as [SelectorKind];
-      const handler = this.selectorVTable[key];
+      const handler = this.selectorVTable[key].bind(this);
 
       if (!handler) {
         return err({
@@ -80,7 +80,7 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
     const rootQuery = mql.selector[0]!;
 
     const [key] = Object.keys(rootQuery) as [SelectorKind];
-    const handler = this.selectorVTable[key];
+    const handler = this.selectorVTable[key].bind(this);
 
     if (!handler) {
       return err({
@@ -204,19 +204,20 @@ export class QueryMatcher extends QueryMatchingEngine<MatchingError> {
   }
 
   queryRangeDist(mql: MQLQuery, selector: Selector, _courseList: CourseList): Result<CourseList, MatchingError> {
+    console.warn("queryRangeDist is deprecated: all `queryRangeX` functions are not stable");
     if (!('RangeDist' in selector)) return err({ requirement: String(mql), message: 'TypeError: Expected .kind = "RangeDist"' });
-    console.warn("queryRangeDist is deprecated: all `queryRangeX` functions are not stable")
     return err({ requirement: String(mql), message: 'queryRangeDist: unimplemented' });
   }
 
   queryRangeTag(mql: MQLQuery, selector: Selector, _courseList: CourseList): Result<CourseList, MatchingError> {
-    if (!('RangeTag' in selector)) return err({ requirement: String(mql), message: 'TypeError: Expected .kind = "RangeTag"' });
     console.warn("queryRangeTag is deprecated: all `queryRangeX` functions are not stable");
+    if (!('RangeTag' in selector)) return err({ requirement: String(mql), message: 'TypeError: Expected .kind = "RangeTag"' });
     return err({ requirement: String(mql), message: 'queryRangeTag: unimplemented' })
   }
 
   queryTag(mql: MQLQuery, selector: Selector, _courseList: CourseList): Result<CourseList, MatchingError> {
     if (!('Tag' in selector)) return err({ requirement: String(mql), message: 'TypeError: Expected .kind = "Tag"' });
+    
     return err({ requirement: String(mql), message: 'queryTag: unimplemented' })
   }
 
